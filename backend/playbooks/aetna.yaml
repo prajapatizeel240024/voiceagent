@@ -1,0 +1,91 @@
+# ──────────────────────────────────────────────────────────────────
+# Aetna — Provider Services payer playbook
+#
+# This is the asset that compounds (slide 8 of the deck).
+# Day 1 it's this file. Month 12 it's 30 of these and a moat.
+#
+# A non-engineer credentialing coordinator can edit this YAML to tweak
+# the script without redeploying. That's the same YAML-driven pattern
+# you shipped in MIA (43+ visa modules → 15 generic screens).
+# ──────────────────────────────────────────────────────────────────
+
+payer: Aetna
+payer_id: aetna
+provider_services_number: "+18002827131" # Aetna provider services (public)
+
+# Caller persona — what we say when the rep picks up
+persona:
+  practice_name: "Hudson Valley Primary Care"
+  practice_tax_id: "12-3456789"
+  caller_name: "the credentialing team"
+
+# IVR navigation map — pressed in order until we hear a human or hold music.
+# Each entry: if we hear `prompt_contains`, execute `action`.
+ivr_map:
+  - prompt_contains: "provider"
+    action: dtmf
+    value: "2"
+    timeout_ms: 8000
+  - prompt_contains: "credentialing"
+    action: dtmf
+    value: "1"
+    timeout_ms: 8000
+  - prompt_contains: "tax id"
+    action: dtmf
+    value: "{practice_tax_id_digits}"
+    timeout_ms: 8000
+
+# Hold-music detection thresholds.
+hold_detection:
+  silence_threshold_seconds: 4
+  max_hold_seconds: 1800
+  re_check_every_seconds: 30
+
+# Greeting + identification line, read at state=IDENTIFY.
+script:
+  greeting: |
+    Hi, this is {caller_name} calling from {practice_name} regarding
+    provider credentialing. I'd like to check on the status of an
+    application for NPI {npi}, application number {application_id}.
+
+# The slots we need to fill on every call.
+# Order matters — slot-filling proceeds top to bottom.
+slots:
+  - name: application_status
+    question: "Can you tell me the current status of the application?"
+    type: enum
+    values:
+      - in_review
+      - missing_info
+      - approved
+      - denied
+      - pending_committee
+      - not_found
+    required: true
+
+  - name: missing_items
+    question: "Are there any documents or items still outstanding?"
+    type: list
+    required: false
+    skip_if:
+      application_status: [approved, denied]
+
+  - name: expected_decision_date
+    question: "When do you expect a decision on this application?"
+    type: date
+    required: false
+
+  - name: reference_number
+    question: "Can I get a reference number for this call?"
+    type: string
+    required: true
+    asked_in_state: CLOSE
+
+# Hard guardrails — things the agent is NEVER allowed to do.
+# Implemented in dialogue.ts as a constraint on the system prompt.
+guardrails:
+  - never_commit_to_send_documents
+  - never_provide_patient_info
+  - never_negotiate_or_argue
+  - always_get_reference_number
+  - escalate_on_authorization_request

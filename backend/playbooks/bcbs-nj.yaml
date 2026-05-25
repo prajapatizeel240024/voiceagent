@@ -1,0 +1,64 @@
+# BCBS-NJ — same engine, different YAML.
+# This is the demo moment: "watch me add a payer with one file."
+
+payer: Blue Cross Blue Shield New Jersey
+payer_id: bcbs_nj
+provider_services_number: "+18886242583"
+
+persona:
+  practice_name: "Hudson Valley Primary Care"
+  practice_tax_id: "12-3456789"
+  caller_name: "the credentialing team"
+
+ivr_map:
+  - prompt_contains: "for providers"
+    action: dtmf
+    value: "3"
+    timeout_ms: 10000
+  - prompt_contains: "credentialing or contracting"
+    action: dtmf
+    value: "2"
+    timeout_ms: 10000
+  - prompt_contains: "npi"
+    action: dtmf
+    value: "{npi_digits}"
+    timeout_ms: 12000
+
+hold_detection:
+  silence_threshold_seconds: 5
+  max_hold_seconds: 2400 # BCBS is notorious for long holds — 40 min cap
+  re_check_every_seconds: 45
+
+script:
+  greeting: |
+    Good morning, this is {caller_name} from {practice_name}.
+    I'm following up on application number {application_id} for the
+    provider with NPI {npi}. Could you check the status for me?
+
+slots:
+  - name: application_status
+    question: "What's the current status of the application?"
+    type: enum
+    values: [in_review, missing_info, approved, denied, pending_committee, not_found]
+    required: true
+
+  - name: missing_items
+    question: "Is there anything outstanding from our side?"
+    type: list
+    required: false
+
+  - name: expected_decision_date
+    question: "When should we expect a decision?"
+    type: date
+    required: false
+
+  - name: reference_number
+    question: "Can I have a reference number for this call please?"
+    type: string
+    required: true
+    asked_in_state: CLOSE
+
+guardrails:
+  - never_commit_to_send_documents
+  - never_provide_patient_info
+  - always_get_reference_number

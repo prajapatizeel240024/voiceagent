@@ -1,0 +1,18 @@
+[Unit]
+Description=Atano Voice Agent backend
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=atano
+WorkingDirectory=/home/atano/atano-voice-agent/backend
+EnvironmentFile=/home/atano/atano-voice-agent/backend/.env
+ExecStart=/usr/bin/node dist/server.js
+StandardOutput=append:/var/log/atano-backend.log
+StandardError=append:/var/log/atano-backend.log
+
+[Install]
+WantedBy=multi-user.target
